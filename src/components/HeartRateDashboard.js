@@ -90,7 +90,7 @@ const HeartRateDashboard = () => {
             <h2 className="text-xl font-semibold mb-4">Heart Rate Zones</h2>
             <div className="space-y-4">
               <div className="bg-red-100 p-4 rounded">
-                <h3 className="font-medium">Zone 1: Resting</h3>
+                <h3 className="font-medium">Zone 1: Des</h3>
                 <p className="text-gray-600">50-60 BPM</p>
               </div>
               <div className="bg-yellow-100 p-4 rounded">
