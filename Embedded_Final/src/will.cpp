@@ -26,39 +26,44 @@ enum Level {
 };
 
 ArduinoFFT<double> FFT_test() {
-    
-
     double vReal[samples];
     double vImag[samples];
-
     for (int i = 0; i < samples; i++) {
         vReal[i] = 100 * sin(2 * PI * frequency * i / samplingFrequency); 
         vImag[i] = 0; 
     }
+    /* Printing the sample value to test*/
+    // Serial.println("Sine Wave Values:");
+    // for (int i = 0; i < samples; i++) {
+    //     Serial.print("Sample ");
+    //     Serial.print(i);
+    //     Serial.print(": ");
+    //     Serial.println(vReal[i]);
+    // }
 
-    Serial.println("Sine Wave Values:");
-    for (int i = 0; i < samples; i++) {
-        Serial.print("Sample ");
-        Serial.print(i);
-        Serial.print(": ");
-        Serial.println(vReal[i]);
-    }
     ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, samples, samplingFrequency);
     //FFT occurs
-
+    FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);	/* Weigh data */
+    FFT.compute(FFTDirection::Forward); /* Compute FFT */
+    FFT.complexToMagnitude(); /* Compute magnitudes */
+    float x = FFT.majorPeak();
+    Serial.print(x);
+    /* */
     Serial.println("Data:");
     PrintVector(vReal, samples, SCL_TIME);
-    FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);	/* Weigh data */
-    Serial.println("Weighed data:");
-    PrintVector(vReal, samples, SCL_TIME);
-    FFT.compute(FFTDirection::Forward); /* Compute FFT */
-    Serial.println("Computed Real values:");
-    PrintVector(vReal, samples, SCL_INDEX);
-    Serial.println("Computed Imaginary values:");
-    PrintVector(vImag, samples, SCL_INDEX);
-    FFT.complexToMagnitude(); /* Compute magnitudes */
-    Serial.println("Computed magnitudes:");
-    PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
+    FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);	
+    
+    /* Weigh data option */
+    // Serial.println("Weighed data:");
+    // PrintVector(vReal, samples, SCL_TIME);
+    // FFT.compute(FFTDirection::Forward); /* Compute FFT */
+    // Serial.println("Computed Real values:");
+    // PrintVector(vReal, samples, SCL_INDEX);
+    // Serial.println("Computed Imaginary values:");
+    // PrintVector(vImag, samples, SCL_INDEX);
+    // FFT.complexToMagnitude(); /* Compute magnitudes */
+    // Serial.println("Computed magnitudes:");
+    // PrintVector(vReal, (samples >> 1), SCL_FREQUENCY);
 }
 
 void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
