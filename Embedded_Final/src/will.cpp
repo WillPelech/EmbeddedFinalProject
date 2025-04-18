@@ -104,6 +104,10 @@ Color color_lights(float freq){
     }
 } 
 
+void lights_on(Level level, Color color){
+    
+}
+
 void setup() {
     Serial.begin(9600);
     
@@ -123,6 +127,7 @@ void loop() {
     float smoothedFrequency = movingAverage(peakFrequency); // Apply moving average
     Serial.print("Smoothed Frequency: ");
     Serial.println(smoothedFrequency);
+
     delay(2000);
     
 }
