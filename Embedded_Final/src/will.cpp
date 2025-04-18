@@ -5,8 +5,8 @@
 #define SCL_FREQUENCY 0x02
 #define SCL_PLOT 0x03
 #define samples 64
-#define samplingFrequency 1000 
-#define frequency 50 
+#define samplingFrequency 1000
+#define frequency 50
 #define window 5
 
 //for moving average filter
@@ -40,6 +40,12 @@ enum Level {
     LEVEL_9,
     LEVEL_10
 };
+enum Color{
+    good,//green
+    dyskenisia,//yellow
+    tremors//red
+};
+
 
 float FFT(double vReal[samples], double vImag[samples]) {
     ArduinoFFT<double> FFT = ArduinoFFT<double>(vReal, vImag, samples, samplingFrequency);
@@ -78,10 +84,33 @@ void PrintVector(double *vData, uint16_t bufferSize, uint8_t scaleType)
     Serial.println();
 }
 
+Level num_lights(float freq){
+    //default is good 
+    Level myLevel = LEVEL_1;
+    if(freq>3000 && freq<5000){
+        myLevel = (Level)((int)(freq - 3000)/200);
+    }else{
+        myLevel = (Level)((int)(freq - 5000)/200);
+    }
+    return myLevel;
+}
+
+Color color_lights(float freq){
+    Color myColor = good;
+    if(freq>3000 && freq<5000){
+        myColor = tremors;
+    }else{
+        myColor = dyskenisia;
+    }
+} 
+
 void setup() {
     Serial.begin(9600);
     
 }
+
+
+
 
 void loop() {
     double vReal[samples]; 
