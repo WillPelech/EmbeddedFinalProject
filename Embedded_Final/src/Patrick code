@@ -1,0 +1,59 @@
+#include <Adafruit_CircuitPlayground.h>
+using namespace std;
+// define colors
+#define RED 0xe60000
+#define GREEN 0x00ff00
+
+
+void set_neopixel(float freq){
+  // define variable level
+  float level;
+  // define tremor
+  if ((3 <= freq) && (freq < 5)){
+    // level = [(freq - 3) / (5-3)] * 5
+    level = ((freq - 3) / 0.4) + 0.0000001;
+    // round down to nearest level
+    level = floor(level);
+    // cap at 4
+    if (level > 4) {level = 4;}
+    // light up corresponding pixels
+    for (int pixel=0; pixel<level +1; pixel++) {
+      CircuitPlayground.setPixelColor(pixel, RED);
+    }
+  }
+  // define dyskinesia 
+  else if ((freq >= 5.0) && (freq <= 7.0 )){
+    // level = [(freq - 5) / (7-5)] * 10
+    level = (freq - 5) / 0.4 + 0.0000001;
+    // round down to nearest level
+    level = floor(level);
+    // cap at 4
+    if (level > 4) {level = 4;}
+    // start from the last pixel
+    level = 9 - level;
+    // light up corresponding pixels
+    for (int pixel= 9; pixel > level - 1; pixel--) {
+      CircuitPlayground.setPixelColor(pixel, GREEN);
+    }
+  }
+  else{
+    for (int pixel= 0; pixel< 10; pixel++) {
+      CircuitPlayground.setPixelColor(pixel, 0,0,0);
+    }
+  }
+}
+
+void setup(){
+  CircuitPlayground.begin();
+  int index = 0;
+  float test_input_freq[7] = {3.5, 3.8, 6.9, 5.6, 4.9, 3, 7};
+  // should display: R2, R3, G5, G2, R5, R1, G1 => actually displaying R2, R2, G5, G2, R5
+  while(index < (sizeof(test_input_freq) / sizeof(float))){
+    set_neopixel(test_input_freq[index]);
+    delay (1000);
+    set_neopixel(0);
+    index++;
+  }
+}
+
+void loop() {}
