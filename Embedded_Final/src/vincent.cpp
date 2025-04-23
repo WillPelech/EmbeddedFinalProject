@@ -30,8 +30,6 @@ enum State {
 };
 
 // Variables
-double movementThreshold = 0.3; // Threshold for movement detection
-
 State currentState = RECORDING;
 unsigned long lastSampleTime = 0;
 int sampleIndex = 0;
@@ -42,6 +40,8 @@ float peakFrequency = 0;
 float peakMagnitude = 0;
 int intensity = 0; // 0-5 intensity scale
 
+void analyzeData();
+
 void setup() {
   CircuitPlayground.begin(); // Initialize circuit playground
 
@@ -50,54 +50,6 @@ void setup() {
   Serial.println("Ready");
 }
 
-void analyzeData() {
-  Serial.println("Performing FFT analysis...");
-  
-  // Prepare the FFT
-  FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);
-  FFT.dcRemoval();
-  FFT.compute(FFTDirection::Forward);
-  FFT.complexToMagnitude();
-  
-  peakFrequency = 0;
-  peakMagnitude = 0;
-  
-  // Print FFT results for debugging
-  Serial.println("Frequency\tMagnitude");
-  
-  for (int i = 0; i < SAMPLES/2; i++) {
-    float frequency = (i * 1.0 * SAMPLING_FREQUENCY) / SAMPLES;
-    
-    // removes the DC component and low frequencies
-    if (frequency >= 2.0 && frequency <= 8.0) {
-      Serial.print(frequency);
-      Serial.print("\t\t");
-      Serial.println(vReal[i]);
-      
-      if (vReal[i] > peakMagnitude) {
-        peakMagnitude = vReal[i];
-        peakFrequency = frequency;
-      }
-    }
-  }
-  
-  // Determine condition based on peak frequency
-  if (peakFrequency >= PARKINSON_LOW && peakFrequency < PARKINSON_HIGH) {
-    Serial.println("*** PARKINSON DETECTED ***");
-    // need to reset Axis X,Y and Z
-  } else if (peakFrequency >= DYSKINESIA_LOW) {
-    Serial.println("*** DYSKINESIA DETECTED ***");
-  } else {
-    Serial.println("*** NO MOVEMENT DISORDER DETECTED ***");
-  }
-  
-  // Summary output
-  Serial.print("Peak Frequency: ");
-  Serial.print(peakFrequency);
-  Serial.print(" Hz, Magnitude: ");
-  Serial.print(peakMagnitude);
-  Serial.println("-----------------------------");
-}
 
 void loop() {
   unsigned long currentMillis = millis();
@@ -105,7 +57,7 @@ void loop() {
   switch (currentState) {
     case RECORDING:
       // Time to collect the next sample?
-      if (currentMillis - lastSampleTime >= (1000 / SAMPLING_FREQUENCY)) {
+      if (currentMillis - lastSampleTime >= (1000 / SAMPLING_FREQUENCY)) { // ensures 3 sec window for sampling 
         lastSampleTime = currentMillis;
         
         // Read accelerometer data
@@ -115,6 +67,7 @@ void loop() {
         
         // Calculate the magnitude of the acceleration vector
         float magnitude = sqrt((x * x) + (y * y) + (z * z));
+        magnitude -= 9.8 ; // Remove gravity component
         
         // Store the sample
         vReal[sampleIndex] = magnitude;
@@ -154,4 +107,107 @@ void loop() {
       }
       break;
   }
+}
+
+void analyzeData() {
+  Serial.println("Performing FFT analysis...");
+  
+  // Prepare the FFT
+  FFT.windowing(FFTWindow::Hamming, FFTDirection::Forward);
+  FFT.dcRemoval();
+  FFT.compute(FFTDirection::Forward);
+  FFT.complexToMagnitude();
+  
+  peakFrequency = 0;
+  peakMagnitude = 0;
+
+  float parkinsonPeakMag = 0;
+  float parkinsonPeakFreq = 0;
+  float dyskinesiaPeakMag = 0;
+  float dyskinesiaPeakFreq = 0;
+  
+  // Print FFT results for debugging
+  Serial.println("Frequency\tMagnitude");
+  
+  for (int i = 0; i < SAMPLES/2; i++) {
+    float frequency = (i * SAMPLING_FREQUENCY) / SAMPLES;
+    
+    // removes the DC component and low frequencies
+    if (frequency < 2) continue;
+
+    // every 5th sample (for debugging)
+    if (i % 5 ==0) { 
+      Serial.print(frequency);
+      Serial.print("Hz\t\t");
+      Serial.println(vReal[i]);
+    }
+    
+    if (vReal[i] > peakMagnitude) {
+      peakMagnitude = vReal[i];
+      peakFrequency = frequency;
+    }
+    
+    // Track peaks in our specific ranges of interest
+    if (frequency >= PARKINSON_LOW && frequency < PARKINSON_HIGH) {
+      if (vReal[i] > parkinsonPeakMag) {
+        parkinsonPeakMag = vReal[i];
+        parkinsonPeakFreq = frequency;
+      }
+    } 
+    else if (frequency >= DYSKINESIA_LOW) {  
+      if (vReal[i] > dyskinesiaPeakMag) {
+        dyskinesiaPeakMag = vReal[i];
+        dyskinesiaPeakFreq = frequency;
+      }
+    }
+  }
+
+  float detectionThreshold = 1.5;
+  float relevantFrequency = 0;
+  
+  // Determine condition based on peak frequencies and magnitudes
+  if (parkinsonPeakMag > detectionThreshold && parkinsonPeakMag > dyskinesiaPeakMag) {
+    Serial.println("*** PARKINSON DETECTED ***");
+    Serial.print("Parkinson peak at: ");
+    Serial.print(parkinsonPeakFreq);
+    Serial.print(" Hz with magnitude: ");
+    Serial.println(parkinsonPeakMag);
+
+    relevantFrequency = parkinsonPeakFreq;
+  } 
+  else if (dyskinesiaPeakMag > detectionThreshold) {
+    Serial.println("*** DYSKINESIA DETECTED ***");
+    Serial.print("Dyskinesia peak at: ");
+    Serial.print(dyskinesiaPeakFreq);
+    Serial.print(" Hz with magnitude: ");
+    Serial.println(dyskinesiaPeakMag);
+
+    relevantFrequency = dyskinesiaPeakFreq;
+  } 
+  else {
+    Serial.println("*** NO MOVEMENT DISORDER DETECTED ***");
+
+    relevantFrequency = 0;
+  }
+  
+  // Calculate intensity based on frequency (1-6 scale)
+  if (relevantFrequency >= 3.0) {
+    // Linear mapping: 3Hz->1, 4Hz->2, 5Hz->3, 6Hz->4, 7Hz->5, >7Hz->6
+    intensity = min(6, 1 + (int)((relevantFrequency - 3.0) + 0.5)); // +0.5 for proper rounding
+    Serial.print("Intensity level: ");
+    Serial.print(intensity);
+    Serial.print(" (based on ");
+    Serial.print(relevantFrequency);
+    Serial.println(" Hz)");
+  } else {
+    intensity = 0;
+    Serial.println("Intensity level: 0 (no relevant movement)");
+  }
+  
+  // Summary output
+  Serial.print("Overall Peak Frequency: ");
+  Serial.print(peakFrequency);
+  Serial.print(" Hz, Magnitude: ");
+  Serial.println(peakMagnitude);
+  Serial.println("-----------------------------");
 }
