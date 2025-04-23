@@ -11,7 +11,7 @@
 #define PARKINSON_LOW 3.0
 #define PARKINSON_HIGH 5.0
 #define DYSKINESIA_LOW 5.0
-#define DYSKINESIA_HIGH 7.0
+// #define DYSKINESIA_HIGH 7.0
 
 // FFT
 #define SAMPLES 128
@@ -30,6 +30,8 @@ enum State {
 };
 
 // Variables
+double movementThreshold = 0.3; // Threshold for movement detection
+
 State currentState = RECORDING;
 unsigned long lastSampleTime = 0;
 int sampleIndex = 0;
@@ -38,7 +40,6 @@ const long waitDuration = 2000; // Wait 2 seconds between analyses
 
 float peakFrequency = 0;
 float peakMagnitude = 0;
-int condition = 0; // 0=normal, 1=tremor, 2=dyskinesia
 int intensity = 0; // 0-5 intensity scale
 
 void setup() {
@@ -58,7 +59,6 @@ void analyzeData() {
   FFT.compute(FFTDirection::Forward);
   FFT.complexToMagnitude();
   
-  // Find the peak in the range of interest (2-8 Hz)
   peakFrequency = 0;
   peakMagnitude = 0;
   
@@ -68,7 +68,7 @@ void analyzeData() {
   for (int i = 0; i < SAMPLES/2; i++) {
     float frequency = (i * 1.0 * SAMPLING_FREQUENCY) / SAMPLES;
     
-    // Only examine frequencies in our range of interest
+    // removes the DC component and low frequencies
     if (frequency >= 2.0 && frequency <= 8.0) {
       Serial.print(frequency);
       Serial.print("\t\t");
@@ -80,20 +80,14 @@ void analyzeData() {
       }
     }
   }
-
-  // Normalize the magnitude (simple approach)
-  float normalizedMagnitude = constrain(peakMagnitude / 10.0, 0, 5);
-  intensity = round(normalizedMagnitude);
   
   // Determine condition based on peak frequency
   if (peakFrequency >= PARKINSON_LOW && peakFrequency < PARKINSON_HIGH) {
-    condition = 1; // Parkinson
     Serial.println("*** PARKINSON DETECTED ***");
-  } else if (peakFrequency >= DYSKINESIA_LOW && peakFrequency <= DYSKINESIA_HIGH) {
-    condition = 2; // Dyskinesia
+    // need to reset Axis X,Y and Z
+  } else if (peakFrequency >= DYSKINESIA_LOW) {
     Serial.println("*** DYSKINESIA DETECTED ***");
   } else {
-    condition = 0; // Normal
     Serial.println("*** NO MOVEMENT DISORDER DETECTED ***");
   }
   
@@ -102,8 +96,6 @@ void analyzeData() {
   Serial.print(peakFrequency);
   Serial.print(" Hz, Magnitude: ");
   Serial.print(peakMagnitude);
-  Serial.print(", Intensity: ");
-  Serial.println(intensity);
   Serial.println("-----------------------------");
 }
 
